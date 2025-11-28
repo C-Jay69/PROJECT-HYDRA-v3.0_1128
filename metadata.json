@@ -1,0 +1,5 @@
+{
+  "name": "M&A Due Diligence API",
+  "description": "A modular API for analyzing M&A contracts using a hybrid approach of rule-based logic and LLM semantic analysis to identify risks and red flags.",
+  "requestFramePermissions": []
+}
