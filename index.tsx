@@ -1,9 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Upload, 
   FileText, 
-  AlertTriangle, 
   CheckCircle, 
   ShieldAlert, 
   ChevronDown, 
@@ -11,7 +10,8 @@ import {
   ThumbsUp, 
   ThumbsDown,
   Activity,
-  Cpu
+  Cpu,
+  Timer
 } from 'lucide-react';
 
 // --- Types ---
@@ -122,7 +122,7 @@ const FlagCard: React.FC<{ flag: RedFlag }> = ({ flag }) => {
     setFeedback(type);
     if (flag.id) {
       try {
-        await fetch(`http://localhost:8000/flag/${flag.id}/feedback`, {
+        await fetch(`/flag/${flag.id}/feedback`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -272,6 +272,11 @@ const App = () => {
   const [error, setError] = useState<string | null>(null);
   const [useClaude, setUseClaude] = useState(true);
   const [useGpt, setUseGpt] = useState(true);
+  
+  // ETA Logic
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [totalTime, setTotalTime] = useState(30);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -284,28 +289,45 @@ const App = () => {
   const handleAnalyze = async () => {
     if (!file) return;
 
+    // Smart ETA: larger files take longer.
+    // Base 30s + 10s per MB roughly, capped at 90s for estimation
+    const estimatedSeconds = Math.min(90, 30 + Math.ceil(file.size / (1024 * 1024)) * 10);
+    
+    setTotalTime(estimatedSeconds);
+    setTimeLeft(estimatedSeconds);
     setLoading(true);
     setError(null);
+
+    // Start Countdown
+    const timerInterval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) return 0;
+        return prev - 1;
+      });
+    }, 1000);
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('use_claude', String(useClaude));
     formData.append('use_gpt', String(useGpt));
 
     try {
-      const response = await fetch('http://localhost:8000/analyze', {
+      const response = await fetch('/analyze', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Analysis failed. Please check the backend connection.');
+        throw new Error(`Analysis failed: ${response.statusText}`);
       }
 
       const data = await response.json();
       setResult(data);
     } catch (err) {
+      console.error(err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
+      clearInterval(timerInterval);
       setLoading(false);
     }
   };
@@ -389,16 +411,34 @@ const App = () => {
       {loading && (
         <div style={{textAlign: 'center', padding: '100px 0'}}>
           <div className="spinner" style={{
-            width: '50px', 
-            height: '50px', 
-            border: `5px solid ${colors.bg}`, 
-            borderTop: `5px solid ${colors.primary}`, 
+            width: '60px', 
+            height: '60px', 
+            border: `6px solid ${colors.bg}`, 
+            borderTop: `6px solid ${colors.primary}`, 
             borderRadius: '50%', 
             animation: 'spin 1s linear infinite',
-            margin: '0 auto 20px'
+            margin: '0 auto 30px'
           }}></div>
-          <h2 style={{color: colors.primary}}>Analyzing Contract...</h2>
-          <p style={{color: '#666'}}>Extracting text, running heuristic rules, and querying LLMs.</p>
+          
+          <h2 style={{color: colors.primary, marginBottom: '10px'}}>Analyzing Contract...</h2>
+          <p style={{color: '#666', marginBottom: '30px'}}>Extracting text, running heuristic rules, and querying LLMs.</p>
+
+          <div style={{maxWidth: '400px', margin: '0 auto'}}>
+             <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '10px', color: colors.primary, fontWeight: 'bold'}}>
+                <Timer size={20} />
+                <span>{timeLeft > 0 ? `Estimated time remaining: ${timeLeft}s` : 'Finalizing analysis...'}</span>
+             </div>
+             
+             {/* Progress Bar Container */}
+             <div style={{height: '10px', background: colors.bg, borderRadius: '5px', overflow: 'hidden'}}>
+               <div style={{
+                 height: '100%', 
+                 background: colors.info, 
+                 width: `${((totalTime - timeLeft) / totalTime) * 100}%`,
+                 transition: 'width 1s linear'
+               }}></div>
+             </div>
+          </div>
           <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
         </div>
       )}
