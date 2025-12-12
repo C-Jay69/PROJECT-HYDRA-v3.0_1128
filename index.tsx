@@ -312,7 +312,7 @@ const App = () => {
     formData.append('use_gpt', String(useGpt));
 
     try {
-      const response = await fetch('/analyze', {
+      const response = await fetch('http://localhost:8000/analyze', {
         method: 'POST',
         body: formData,
       });

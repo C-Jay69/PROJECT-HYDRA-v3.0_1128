@@ -16,3 +16,4 @@ class DocumentAnalysis(BaseModel):
     page_count: int
     clauses: List[Clause] = []
     summary: Optional[str] = None
+    rules: List = []

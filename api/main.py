@@ -20,10 +20,21 @@ if settings.enable_cors:
     )
 
 
+class Flag(BaseModel):
+    severity: str
+    score: float
+    title: str
+    description: str
+    recommendation: str
+
+
 class AnalyzeResponse(BaseModel):
     filename: Optional[str] = None
     pages_processed: int
     summary: str
+    overall_risk_score: float
+    flags: list[Flag]
+    extracted_clauses: dict[str, list[str]]
 
 
 @app.get("/health")
@@ -49,10 +60,33 @@ async def analyze(file: UploadFile = File(...)):
     # Naive page approximation by form-feed/newlines for placeholder behavior.
     pages_processed = min(settings.max_pages, content.count(b"\f") + max(content.count(b"\n") // 40, 1))
 
+    # Return placeholder data with all required fields
     return AnalyzeResponse(
         filename=file.filename,
         pages_processed=pages_processed,
         summary="Analysis pipeline not yet implemented. Placeholder response.",
+        overall_risk_score=35.0,
+        flags=[
+            Flag(
+                severity="HIGH",
+                score=75.0,
+                title="Broad Indemnification Clause",
+                description="The contract contains a broad indemnification clause that may expose you to significant liability.",
+                recommendation="Consider negotiating narrower indemnification terms or adding caps on liability."
+            ),
+            Flag(
+                severity="MEDIUM",
+                score=50.0,
+                title="Unilateral Termination Rights",
+                description="The other party has unilateral termination rights that may disadvantage you.",
+                recommendation="Propose mutual termination clauses or add notice period requirements."
+            )
+        ],
+        extracted_clauses={
+            "limitation_of_liability": ["The maximum liability shall not exceed...", "In no event shall either party be liable..."],
+            "confidentiality": ["All confidential information shall be kept strictly confidential..."],
+            "term_and_termination": ["This agreement shall commence on...", "Either party may terminate..."]
+        }
     )
 
 
